@@ -1,12 +1,17 @@
-import { adminDb } from '../lib/firebase-admin'
-import { HeroSection } from '../components/landing/HeroSection'
-import { Nav } from '../components/Nav'
+import { Nav } from '@/components/Nav'
+import { Section1ASCII } from '../components/sections/Section1ASCII'
+import { Section2TextReveal } from '../components/sections/Section2TextReveal'
 
-export default async function Home() {
+export default function Home() {
   return (
     <>
       <Nav />
-      <HeroSection />
+
+      {/* Section 1: Full-screen ASCII hero — zooms into screen on scroll */}
+      <Section1ASCII />
+
+      {/* Section 2: Letter-by-letter reveal — zooms into screen when done */}
+      <Section2TextReveal />
     </>
   )
 }

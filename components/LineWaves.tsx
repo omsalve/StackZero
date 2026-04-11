@@ -224,10 +224,9 @@ export default function LineWaves({
     container.appendChild(gl.canvas);
 
     if (enableMouseInteraction) {
-      gl.canvas.addEventListener('mousemove', handleMouseMove);
-      gl.canvas.addEventListener('mouseleave', handleMouseLeave);
+      window.addEventListener('mousemove', handleMouseMove)
+      window.addEventListener('mouseleave', handleMouseLeave)
     }
-
     let animationFrameId: number;
 
     function update(time: number) {
@@ -252,9 +251,9 @@ export default function LineWaves({
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', resize);
       if (enableMouseInteraction) {
-        gl.canvas.removeEventListener('mousemove', handleMouseMove);
-        gl.canvas.removeEventListener('mouseleave', handleMouseLeave);
-      }
+        window.removeEventListener('mousemove', handleMouseMove)
+        window.removeEventListener('mouseleave', handleMouseLeave)
+      } 
       container.removeChild(gl.canvas);
       gl.getExtension('WEBGL_lose_context')?.loseContext();
     };
