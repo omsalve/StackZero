@@ -2,7 +2,6 @@
 import { motion } from 'framer-motion'
 import type { Variants } from 'framer-motion'
 import Link from 'next/link'
-import LineWaves from '../LineWaves'
 
 const ease = [0.25, 0.1, 0.25, 1] as const
 
@@ -23,25 +22,6 @@ const STAGGER: Variants = {
 export function HeroSection() {
   return (
     <section className="relative min-h-screen flex flex-col justify-center px-6 pt-24 pb-16 max-w-5xl mx-auto">
-
-      {/* LineWaves background */}
-      <div className="fixed inset-0 -z-10">
-        <LineWaves
-          speed={0.3}
-          innerLineCount={32}
-          outerLineCount={36}
-          warpIntensity={1}
-          rotation={-45}
-          edgeFadeWidth={0}
-          colorCycleSpeed={1}
-          brightness={0.2}
-          color1="#ffffff"
-          color2="#ffffff"
-          color3="#ffffff"
-          enableMouseInteraction
-          mouseInfluence={2}
-        />
-      </div>
 
       <motion.div initial="initial" animate="animate" variants={STAGGER}>
         <motion.p variants={FADE_UP} className="text-xs tracking-[0.2em] uppercase text-indigo-400 mb-6 font-medium">

@@ -1,0 +1,69 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ─── Helper Functions ─────────────────────────────────────────────────
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && request.auth.token.email == 'realomsalve@gmail.com';
+    }
+
+    // ─── Users ────────────────────────────────────────────────────────────
+    match /users/{userId} {
+      // Anyone logged in can read profiles (to see who is on a project)
+      allow read: if isAuthenticated();
+      // Users can only update their own profile
+      allow write: if isOwner(userId);
+    }
+
+    // ─── Projects ─────────────────────────────────────────────────────────
+    match /projects/{projectId} {
+      // Anyone can view projects
+      allow read: if true;
+      // Super admin can create any project; others must be the owner
+      allow create: if isSuperAdmin() || (isAuthenticated() && request.resource.data.ownerId == request.auth.uid);
+      // Super admin can edit/delete any project; owner can edit/delete their own
+      allow update, delete: if isSuperAdmin() || (isAuthenticated() && resource.data.ownerId == request.auth.uid);
+    }
+
+    // ─── Project Members ──────────────────────────────────────────────────
+    match /projectMembers/{membershipId} {
+      allow read: if true;
+      // Super admin can add any user; others can only add themselves
+      allow create: if isSuperAdmin() || (isAuthenticated() && request.resource.data.userId == request.auth.uid);
+      // Super admin can remove anyone; users can only remove themselves
+      allow delete: if isSuperAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+    }
+
+    // ─── Contributions ────────────────────────────────────────────────────
+    match /contributions/{contribId} {
+      allow read: if true;
+      // Users can log their own manual contributions. 
+      // (Remember: The GitHub API route uses Admin SDK, which bypasses this rule)
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // ─── Events & Registrations ───────────────────────────────────────────
+    match /events/{eventId} {
+      // Anyone can see events
+      allow read: if true;
+      // Only system admins can create events (via Admin SDK/Firebase Console)
+      allow write: if false; 
+    }
+    
+    match /eventRegistrations/{regId} {
+      allow read: if isAuthenticated();
+      // Users can only register themselves
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+  }
+}

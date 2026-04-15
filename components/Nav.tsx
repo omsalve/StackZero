@@ -14,7 +14,7 @@ const LINKS = [
 export function Nav() {
   const pathname = usePathname()
   const router   = useRouter()
-  const { user, userName, signOut } = useAuth()
+  const { user, userName, isAdmin, signOut } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -104,6 +104,16 @@ export function Nav() {
                       >
                         Dashboard
                       </Link>
+                      {isAdmin && (
+                        <Link
+                          href="/admin"
+                          onClick={() => setMenuOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-indigo-400 hover:text-indigo-300 hover:bg-zinc-800/60 transition-colors"
+                        >
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/15 border border-indigo-500/20 font-mono">admin</span>
+                          Control Panel
+                        </Link>
+                      )}
                       <button
                         onClick={handleSignOut}
                         className="w-full text-left px-4 py-2 text-sm text-zinc-400 hover:text-red-400 hover:bg-zinc-800/60 transition-colors"
