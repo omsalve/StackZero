@@ -1,4 +1,8 @@
-import { prisma } from '@/lib/prisma'
+'use client'
+
+import { use, useEffect, useState } from 'react'
+import { collection, doc, getDoc, getDocs, onSnapshot, query, where } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 import { notFound } from 'next/navigation'
 import { Nav } from '@/components/Nav'
 import { JoinButton } from '@/components/JoinButton'
@@ -6,7 +10,20 @@ import { ContributionFeed } from '@/components/ContributionFeed'
 import { AddContribution } from '@/components/AddContribution'
 import { MemberList } from '@/components/MemberList'
 
-export const dynamic = 'force-dynamic'
+type Project = {
+  id: string
+  title: string
+  description: string
+  stack: string[]
+  status: string
+  ownerId: string
+  ownerName: string
+  memberCount: number
+  contributionCount: number
+}
+
+type Member = { userId: string; userName: string; role: string }
+type Contribution = { id: string; message: string; type: string; createdAt: string; userName: string }
 
 const STATUS_STYLES: Record<string, string> = {
   ACTIVE:   'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
@@ -14,45 +31,79 @@ const STATUS_STYLES: Record<string, string> = {
   PLANNING: 'bg-amber-500/10 text-amber-400 border border-amber-500/20',
 }
 
-export default async function ProjectPage({
-  params,
-}: {
-  params: Promise<{ id: string }>
-}) {
-  const { id } = await params
+export default function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
 
-  const project = await prisma.project.findUnique({
-    where: { id },
-    include: {
-      owner: { select: { id: true, name: true } },
-      members: {
-        include: { user: { select: { id: true, name: true } } },
-        orderBy: { joinedAt: 'asc' },
+  const [project,       setProject]       = useState<Project | null | 'loading'>('loading')
+  const [members,       setMembers]       = useState<Member[]>([])
+  const [contributions, setContributions] = useState<Contribution[]>([])
+
+  // Load project doc once
+  useEffect(() => {
+    getDoc(doc(db, 'projects', id)).then(d => {
+      if (!d.exists()) { setProject(null); return }
+      const data = d.data()
+      setProject({
+        id:               d.id,
+        title:            data.title,
+        description:      data.description,
+        stack:            data.stack            ?? [],
+        status:           data.status           ?? 'ACTIVE',
+        ownerId:          data.ownerId,
+        ownerName:        data.ownerName,
+        memberCount:      data.memberCount      ?? 0,
+        contributionCount: data.contributionCount ?? 0,
+      })
+    })
+  }, [id])
+
+  // Real-time members listener
+  useEffect(() => {
+    return onSnapshot(
+      query(collection(db, 'projectMembers'), where('projectId', '==', id)),
+      snap => setMembers(snap.docs.map(d => {
+        const m = d.data()
+        return { userId: m.userId, userName: m.userName ?? 'Unknown', role: m.role }
+      })),
+    )
+  }, [id])
+
+  // Real-time contributions listener
+  useEffect(() => {
+    return onSnapshot(
+      query(collection(db, 'contributions'), where('projectId', '==', id)),
+      snap => {
+        const sorted = snap.docs
+          .map(d => {
+            const c = d.data()
+            return {
+              id:        d.id,
+              message:   c.message,
+              type:      c.type,
+              userName:  c.userName ?? 'Unknown',
+              createdAt: c.createdAt?.toDate?.()?.toISOString() ?? new Date(0).toISOString(),
+              _ts:       c.createdAt?.toMillis?.() ?? 0,
+            }
+          })
+          .sort((a, b) => b._ts - a._ts)
+          .slice(0, 50)
+        setContributions(sorted)
       },
-      contributions: {
-        include: { user: { select: { id: true, name: true } } },
-        orderBy: { createdAt: 'desc' },
-        take: 50,
-      },
-      _count: { select: { contributions: true, members: true } },
-    },
-  })
+    )
+  }, [id])
 
-  if (!project) notFound()
+  if (project === 'loading') {
+    return (
+      <>
+        <Nav />
+        <main className="max-w-4xl mx-auto px-6 pt-32 pb-24">
+          <p className="text-zinc-600 text-sm font-mono">loading…</p>
+        </main>
+      </>
+    )
+  }
 
-  const members = project.members.map(m => ({
-    userId: m.userId,
-    userName: m.user.name,
-    role: m.role,
-  }))
-
-  const contributions = project.contributions.map(c => ({
-    id: c.id,
-    message: c.message,
-    type: c.type as string,
-    createdAt: c.createdAt,
-    userName: c.user.name,
-  }))
+  if (!project) return notFound()
 
   return (
     <>
@@ -85,9 +136,9 @@ export default async function ProjectPage({
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-3 mb-10">
           {[
-            { label: 'members', value: project._count.members },
-            { label: 'contributions', value: project._count.contributions },
-            { label: 'owner', value: project.owner.name },
+            { label: 'members',       value: members.length },
+            { label: 'contributions', value: contributions.length },
+            { label: 'owner',         value: project.ownerName },
           ].map(s => (
             <div key={s.label} className="p-3 rounded-lg border border-zinc-800 bg-zinc-900/30">
               <p className="text-lg font-semibold text-white">{s.value}</p>
@@ -96,7 +147,7 @@ export default async function ProjectPage({
           ))}
         </div>
 
-        {/* Body: feed + members */}
+        {/* Body */}
         <div className="grid md:grid-cols-[1fr_260px] gap-8">
           <div>
             <div className="flex items-center justify-between mb-4">

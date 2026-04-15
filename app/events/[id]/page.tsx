@@ -1,35 +1,77 @@
-import { getCurrentUser } from '@/lib/get-user'
-import { prisma } from '@/lib/prisma'
+'use client'
+
+import { use, useEffect, useState } from 'react'
+import { collection, doc, getDoc, getDocs, onSnapshot, query, where } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
+import { useAuth } from '@/lib/auth-context'
 import { notFound } from 'next/navigation'
 import { Nav } from '@/components/Nav'
 import { EventRegisterButton } from '@/components/EventRegisterButton'
 
-export const dynamic = 'force-dynamic'
+type Event = {
+  id: string
+  title: string
+  description: string
+  date: string
+  location: string
+  capacity: number
+  tags: string[]
+  registrationCount: number
+}
 
-export default async function EventPage({
-  params,
-}: {
-  params: Promise<{ id: string }>
-}) {
-  const { id } = await params
-  const user   = await getCurrentUser()
+type Registration = { userId: string; userName: string }
 
-  const event = await prisma.event.findUnique({
-    where: { id },
-    include: {
-      registrations: {
-        include: { user: { select: { id: true, name: true } } },
-        orderBy: { registeredAt: 'asc' },
-      },
-      _count: { select: { registrations: true } },
-    },
-  })
+export default function EventPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
+  const { userId } = useAuth()
 
-  if (!event) notFound()
+  const [event,     setEvent]     = useState<Event | null | 'loading'>('loading')
+  const [regs,      setRegs]      = useState<Registration[]>([])
 
-  const registered = user ? event.registrations.some(r => r.userId === user.id) : false
-  const isFull     = event._count.registrations >= event.capacity
-  const isPast     = event.date < new Date()
+  useEffect(() => {
+    getDoc(doc(db, 'events', id)).then(d => {
+      if (!d.exists()) { setEvent(null); return }
+      const data = d.data()
+      setEvent({
+        id:                d.id,
+        title:             data.title,
+        description:       data.description,
+        date:              data.date?.toDate?.()?.toISOString() ?? null,
+        location:          data.location,
+        capacity:          data.capacity,
+        tags:              data.tags              ?? [],
+        registrationCount: data.registrationCount ?? 0,
+      })
+    })
+  }, [id])
+
+  // Real-time registrations listener
+  useEffect(() => {
+    return onSnapshot(
+      query(collection(db, 'eventRegistrations'), where('eventId', '==', id)),
+      snap => setRegs(snap.docs.map(d => {
+        const r = d.data()
+        return { userId: r.userId, userName: r.userName ?? 'Unknown' }
+      })),
+    )
+  }, [id])
+
+  if (event === 'loading') {
+    return (
+      <>
+        <Nav />
+        <main className="max-w-3xl mx-auto px-6 pt-32 pb-24">
+          <p className="text-zinc-600 text-sm font-mono">loading…</p>
+        </main>
+      </>
+    )
+  }
+
+  if (!event) return notFound()
+
+  const registered = userId ? regs.some(r => r.userId === userId) : false
+  const isFull     = regs.length >= event.capacity
+  const isPast     = new Date(event.date) < new Date()
 
   return (
     <>
@@ -51,7 +93,7 @@ export default async function EventPage({
           {[
             { label: 'date',     value: new Date(event.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) },
             { label: 'location', value: event.location },
-            { label: 'capacity', value: `${event._count.registrations} / ${event.capacity}` },
+            { label: 'capacity', value: `${regs.length} / ${event.capacity}` },
           ].map(s => (
             <div key={s.label} className="p-3 rounded-lg border border-zinc-800 bg-zinc-900/30">
               <p className="text-sm font-medium text-zinc-200">{s.value}</p>
@@ -69,15 +111,15 @@ export default async function EventPage({
         )}
 
         <div>
-          <h2 className="text-sm font-medium text-zinc-400 mb-4">Attendees ({event._count.registrations})</h2>
-          {event.registrations.length ? (
+          <h2 className="text-sm font-medium text-zinc-400 mb-4">Attendees ({regs.length})</h2>
+          {regs.length ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {event.registrations.map(r => (
+              {regs.map(r => (
                 <div key={r.userId} className="flex items-center gap-2.5 p-2.5 rounded-lg border border-zinc-800 bg-zinc-900/30">
                   <div className="w-6 h-6 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-[10px] text-indigo-300 font-medium shrink-0">
-                    {r.user.name[0].toUpperCase()}
+                    {(r.userName)[0].toUpperCase()}
                   </div>
-                  <span className="text-sm text-zinc-400 truncate">{r.user.name}</span>
+                  <span className="text-sm text-zinc-400 truncate">{r.userName}</span>
                 </div>
               ))}
             </div>
