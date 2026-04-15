@@ -1,13 +1,93 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../lib/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+model User {
+  id            String              @id // Firebase UID
+  name          String
+  email         String              @default("")
+  avatar        String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  ownedProjects Project[]           @relation("ProjectOwner")
+  memberships   ProjectMember[]
+  contributions Contribution[]
+  registrations EventRegistration[]
+}
+
+enum ProjectStatus {
+  ACTIVE
+  PLANNING
+  ARCHIVED
+}
+
+model Project {
+  id            String          @id @default(cuid())
+  title         String
+  description   String
+  stack         String[]
+  status        ProjectStatus   @default(ACTIVE)
+  ownerId       String
+  owner         User            @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  members       ProjectMember[]
+  contributions Contribution[]
+}
+
+model ProjectMember {
+  projectId String
+  userId    String
+  role      String   @default("member")
+  joinedAt  DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+}
+
+enum ContributionType {
+  commit
+  review
+  fix
+  update
+}
+
+model Contribution {
+  id        String           @id @default(cuid())
+  projectId String
+  userId    String
+  message   String
+  type      ContributionType @default(commit)
+  createdAt DateTime         @default(now())
+  project   Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Event {
+  id            String              @id @default(cuid())
+  title         String
+  description   String
+  date          DateTime
+  location      String
+  capacity      Int                 @default(50)
+  tags          String[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  registrations EventRegistration[]
+}
+
+model EventRegistration {
+  eventId      String
+  userId       String
+  registeredAt DateTime @default(now())
+  event        Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, userId])
 }

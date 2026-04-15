@@ -31,7 +31,7 @@ export function Section1ASCII() {
         }}
       >
         <ASCIIText
-          text="Hey Engineer!"
+          text="what's up?"
           asciiFontSize={8}
           textFontSize={20}
           enableWaves
