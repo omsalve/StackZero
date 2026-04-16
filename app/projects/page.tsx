@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { collection, getDocs, orderBy, query } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { useAuth } from '@/lib/auth-context'
 import { Nav } from '@/components/Nav'
 import { ProjectsGrid } from '@/components/ProjectsGrid'
 
@@ -17,10 +19,17 @@ type Project = {
 }
 
 export default function ProjectsPage() {
+  const { userId, loading: authLoading } = useAuth()
+  const router = useRouter()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading,  setLoading]  = useState(true)
 
   useEffect(() => {
+    if (!authLoading && !userId) router.push('/auth/login')
+  }, [authLoading, userId, router])
+
+  useEffect(() => {
+    if (!userId) return
     getDocs(query(collection(db, 'projects'), orderBy('createdAt', 'desc')))
       .then(snap => {
         setProjects(snap.docs.map(d => {
@@ -38,7 +47,20 @@ export default function ProjectsPage() {
         }))
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [userId])
+
+  if (authLoading || !userId) {
+    return (
+      <>
+        <Nav />
+        <main className="max-w-5xl mx-auto px-6 pt-32 pb-24">
+          <div className="py-24 text-center">
+            <p className="text-zinc-600 text-sm font-mono">loading…</p>
+          </div>
+        </main>
+      </>
+    )
+  }
 
   return (
     <>

@@ -1,6 +1,7 @@
 'use client'
 
 import { use, useEffect, useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { collection, doc, getDoc, getDocs, getCountFromServer, onSnapshot, query, where, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { notFound } from 'next/navigation'
@@ -35,7 +36,12 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-  const { githubHandle } = useAuth()
+  const { userId, loading: authLoading, githubHandle } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!authLoading && !userId) router.push('/auth/login')
+  }, [authLoading, userId, router])
 
   const [project,            setProject]            = useState<Project | null | 'loading'>('loading')
   const [members,            setMembers]            = useState<Member[]>([])
@@ -154,7 +160,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
   const [feedTab, setFeedTab] = useState<'feed' | 'contributors'>('feed')
 
-  if (project === 'loading') {
+  if (authLoading || !userId || project === 'loading') {
     return (
       <>
         <Nav />
