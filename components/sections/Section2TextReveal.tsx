@@ -3,10 +3,11 @@ import { useRef, useEffect, useState } from 'react'
 import { useScroll, useTransform, useSpring, motion } from 'framer-motion'
 
 const BODY_TEXT =
-  "StackZero is the operating system for your engineering club. " +
-  "Find projects that match your stack. Log contributions. " +
-  "Ship real things with real people. " +
-  "No fluff. No slides. Just code."
+  "StackZero is the OS for your engineering club. " +
+  "Join active projects. Sync commits from GitHub. " +
+  "Log reviews, fixes, and builds. " +
+  "Register for events. " +
+  "See who's building what, and where you fit in."
 
 // Split into words, track cumulative char index per word
 const words = BODY_TEXT.split(' ')
@@ -67,13 +68,10 @@ export function Section2TextReveal() {
             lineHeight: 1.65,
             letterSpacing: '-0.01em',
             color: '#fff',
-            // Normal inline flow so words wrap naturally
             whiteSpace: 'normal',
             wordBreak: 'break-word',
           }}>
             {wordData.map(({ word, start, end }, wi) => (
-              // Each word is inline so browser wraps normally
-              // The space after is a real text node, not a span
               <span key={wi} style={{ display: 'inline', whiteSpace: 'normal' }}>
                 {word.split('').map((char, ci) => {
                   const charIdx = start + ci
@@ -91,7 +89,6 @@ export function Section2TextReveal() {
                     </span>
                   )
                 })}
-                {/* Space between words as plain text so line-breaking works */}
                 {wi < wordData.length - 1 && (
                   <span style={{
                     display: 'inline',
